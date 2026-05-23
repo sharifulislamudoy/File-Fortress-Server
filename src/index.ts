@@ -3,18 +3,18 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
+import pinRoutes from "./routes/pinRoutes";   // <-- add import
 
 dotenv.config();
 connectDB();
 
 const app: Application = express();
 
-// Middlewares
 app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 app.use(express.json());
 
-// Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/pin", pinRoutes);               // <-- use PIN routes
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Server is running...");
