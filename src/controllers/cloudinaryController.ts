@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import CloudinaryConfig from "../models/CloudinaryConfig";
+import { encrypt, decrypt } from "../utils/encryption";
 
 // @desc    Save or update Cloudinary config for user
 // @route   POST /api/cloudinary/config
@@ -12,14 +13,16 @@ export const saveCloudinaryConfig = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Folder name and unsigned upload preset are required" });
     }
 
-    // Convert userId string to ObjectId
     const userId = new mongoose.Types.ObjectId(req.userId);
 
-    // Upsert: update if exists, otherwise create
+    // Encrypt before saving
+    const encryptedFolder = encrypt(folderName.trim());
+    const encryptedPreset = encrypt(unsignedUploadPreset.trim());
+
     const config = await CloudinaryConfig.findOneAndUpdate(
-      { userId }, // filter
-      { folderName, unsignedUploadPreset }, // update
-      { upsert: true, new: true, lean: true } // options: return new doc, lean for plain object
+      { userId },
+      { folderName: encryptedFolder, unsignedUploadPreset: encryptedPreset },
+      { upsert: true, new: true, lean: true }
     );
 
     if (!config) {
@@ -29,8 +32,8 @@ export const saveCloudinaryConfig = async (req: Request, res: Response) => {
     res.status(200).json({
       message: "Cloudinary configuration saved successfully",
       config: {
-        folderName: config.folderName,
-        unsignedUploadPreset: config.unsignedUploadPreset,
+        folderName: folderName.trim(),           // return original (not encrypted)
+        unsignedUploadPreset: unsignedUploadPreset.trim(),
       },
     });
   } catch (error) {
@@ -50,9 +53,10 @@ export const getCloudinaryConfig = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "No Cloudinary configuration found" });
     }
 
+    // Decrypt before returning
     res.json({
-      folderName: config.folderName,
-      unsignedUploadPreset: config.unsignedUploadPreset,
+      folderName: decrypt(config.folderName),
+      unsignedUploadPreset: decrypt(config.unsignedUploadPreset),
     });
   } catch (error) {
     console.error(error);
