@@ -3,18 +3,20 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
-import pinRoutes from "./routes/pinRoutes";   // <-- add import
+import pinRoutes from "./routes/pinRoutes";
+import cloudinaryRoutes from "./routes/cloudinaryRoutes";  // <-- ADD THIS
 
 dotenv.config();
 connectDB();
 
 const app: Application = express();
 
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({ origin: `${process.env.CLIENT_URL}`, credentials: true }));
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
-app.use("/api/pin", pinRoutes);               // <-- use PIN routes
+app.use("/api/pin", pinRoutes);
+app.use("/api/cloudinary", cloudinaryRoutes);   // <-- ADD THIS
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Server is running...");
