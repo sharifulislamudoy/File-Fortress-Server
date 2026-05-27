@@ -11,6 +11,7 @@ function getKey(): Buffer {
 }
 
 export function encrypt(text: string): string {
+  if (!text) throw new Error("Cannot encrypt empty or undefined text");
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv(ALGORITHM, getKey(), iv);
 
@@ -21,7 +22,14 @@ export function encrypt(text: string): string {
 }
 
 export function decrypt(data: string): string {
-  const [ivHex, authTagHex, encryptedHex] = data.split(":");
+  if (!data || typeof data !== "string") {
+    throw new Error("Invalid encrypted data");
+  }
+  const parts = data.split(":");
+  if (parts.length !== 3) {
+    throw new Error("Malformed encrypted data");
+  }
+  const [ivHex, authTagHex, encryptedHex] = parts;
 
   const iv = Buffer.from(ivHex, "hex");
   const authTag = Buffer.from(authTagHex, "hex");

@@ -2,8 +2,10 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface ICloudinaryConfig extends Document {
   userId: mongoose.Types.ObjectId;
-  folderName: string;
-  unsignedUploadPreset: string;
+  cloudName: string;    // encrypted
+  folderName: string;   // encrypted
+  apiKey: string;       // encrypted
+  apiSecret: string;    // encrypted
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,12 +18,22 @@ const CloudinaryConfigSchema = new Schema<ICloudinaryConfig>(
       required: true,
       unique: true,
     },
+    cloudName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     folderName: {
       type: String,
       required: true,
       trim: true,
     },
-    unsignedUploadPreset: {
+    apiKey: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    apiSecret: {
       type: String,
       required: true,
       trim: true,
@@ -30,6 +42,5 @@ const CloudinaryConfigSchema = new Schema<ICloudinaryConfig>(
   { timestamps: true }
 );
 
-// Ensure the model is not re-compiled in development (Next.js hot reload)
 export default mongoose.models.CloudinaryConfig ||
   mongoose.model<ICloudinaryConfig>("CloudinaryConfig", CloudinaryConfigSchema);
