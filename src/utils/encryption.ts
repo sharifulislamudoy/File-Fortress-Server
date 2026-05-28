@@ -40,3 +40,11 @@ export function decrypt(data: string): string {
 
   return decipher.update(encrypted) + decipher.final("utf8");
 }
+
+export function encryptFolderData(text: string): string {
+  return encrypt(text);
+}
+
+export function decryptFolderData(encrypted: string): string {
+  return decrypt(encrypted);
+}
