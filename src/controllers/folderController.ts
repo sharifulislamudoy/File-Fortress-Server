@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Folder from "../models/Folder";
+import File from "../models/File";
+import Note from "../models/Note";
+import { decrypt } from "../utils/encryption";
 
 // Helper to generate slug from name
 const generateSlug = (name: string): string => {
@@ -15,19 +18,24 @@ const generateSlug = (name: string): string => {
 // Helper to get a unique slug by appending a number if needed
 const getUniqueSlug = async (
   userId: mongoose.Types.ObjectId,
-  baseSlug: string
+  baseSlug: string,
+  excludeFolderId?: string
 ): Promise<string> => {
   let slug = baseSlug;
   let counter = 1;
   while (true) {
-    const existing = await Folder.findOne({ userId, slug });
+    const query: any = { userId, slug };
+    if (excludeFolderId) {
+      query._id = { $ne: excludeFolderId };
+    }
+    const existing = await Folder.findOne(query);
     if (!existing) return slug;
     slug = `${baseSlug}-${counter}`;
     counter++;
   }
 };
 
-// @desc    Create a new folder (root only)
+// @desc    Create a new folder
 // @route   POST /api/folders
 export const createFolder = async (req: Request, res: Response) => {
   try {
@@ -58,6 +66,68 @@ export const createFolder = async (req: Request, res: Response) => {
   }
 };
 
+// @desc    Update a folder
+// @route   PUT /api/folders/:folderId
+export const updateFolder = async (req: Request, res: Response) => {
+  try {
+    const folderId = req.params.folderId as string;
+    const { name, purpose } = req.body;
+    const userId = new mongoose.Types.ObjectId(req.userId);
+
+    const folder = await Folder.findOne({ _id: folderId, userId });
+    if (!folder) {
+      return res.status(404).json({ message: "Folder not found" });
+    }
+
+    let updateData: any = {};
+    if (name !== undefined && name.trim()) {
+      updateData.name = name.trim();
+      const baseSlug = generateSlug(name.trim());
+      updateData.slug = await getUniqueSlug(userId, baseSlug, folderId);
+    }
+    if (purpose !== undefined && purpose.trim()) {
+      updateData.purpose = purpose.trim();
+    }
+
+    const updatedFolder = await Folder.findByIdAndUpdate(folderId, updateData, { new: true });
+    res.json(updatedFolder);
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Folder name already exists. Try a different name." });
+    }
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Delete a folder (cascade delete files & notes)
+// @route   DELETE /api/folders/:folderId
+export const deleteFolder = async (req: Request, res: Response) => {
+  try {
+    const folderId = req.params.folderId as string;
+    const userId = new mongoose.Types.ObjectId(req.userId);
+
+    const folder = await Folder.findOne({ _id: folderId, userId });
+    if (!folder) {
+      return res.status(404).json({ message: "Folder not found" });
+    }
+
+    // Delete all files in this folder
+    await File.deleteMany({ folderId, userId });
+
+    // Delete all notes in this folder
+    await Note.deleteMany({ folderId, userId });
+
+    // Delete the folder itself
+    await folder.deleteOne();
+
+    res.json({ message: "Folder and all its contents deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // @desc    Get user's root folders (all folders)
 // @route   GET /api/folders/root
 export const getRootFolders = async (req: Request, res: Response) => {
@@ -71,11 +141,11 @@ export const getRootFolders = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Get folder by slug (and user)
+// @desc    Get folder by slug
 // @route   GET /api/folders/slug/:slug
 export const getFolderBySlug = async (req: Request, res: Response) => {
   try {
-    const { slug } = req.params;
+    const slug = req.params.slug as string;
     const userId = new mongoose.Types.ObjectId(req.userId);
 
     const folder = await Folder.findOne({ userId, slug });
@@ -90,11 +160,11 @@ export const getFolderBySlug = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Get folder contents (files only, no subfolders)
+// @desc    Get folder contents (files and notes)
 // @route   GET /api/folders/:folderId/contents
 export const getFolderContents = async (req: Request, res: Response) => {
   try {
-    const { folderId } = req.params;
+    const folderId = req.params.folderId as string;
     const userId = new mongoose.Types.ObjectId(req.userId);
 
     const folder = await Folder.findOne({ _id: folderId, userId });
@@ -102,21 +172,28 @@ export const getFolderContents = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Folder not found" });
     }
 
-    // Get files belonging to this folder
-    const File = require("../models/File").default;
     const files = await File.find({ userId, folderId }).sort({ createdAt: -1 });
+    const notes = await Note.find({ userId, folderId }).sort({ createdAt: -1 });
 
-    // Decrypt file URLs for frontend display
-    const { decrypt } = require("../utils/encryption");
     const decryptedFiles = files.map((file: any) => ({
       ...file.toObject(),
       url: decrypt(file.encryptedUrl),
     }));
 
+    const decryptedNotes = notes.map((note: any) => ({
+      _id: note._id,
+      folderId: note.folderId,
+      title: decrypt(note.title),
+      type: note.type,
+      content: decrypt(note.content),
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+    }));
+
     res.json({
       folder,
-      subfolders: [], // no subfolders anymore
       files: decryptedFiles,
+      notes: decryptedNotes,
     });
   } catch (error) {
     console.error(error);

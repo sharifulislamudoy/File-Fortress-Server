@@ -5,9 +5,10 @@ import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
 import pinRoutes from "./routes/pinRoutes";
 import cloudinaryRoutes from "./routes/cloudinaryRoutes";
-import folderRoutes from "./routes/folderRoutes";    // ADD
-import fileRoutes from "./routes/fileRoutes";        // ADD
+import folderRoutes from "./routes/folderRoutes";    
+import fileRoutes from "./routes/fileRoutes";        
 import chatRoutes from "./routes/chatRoutes";
+import noteRoutes from "./routes/noteRoutes";
 
 dotenv.config();
 connectDB();
@@ -23,6 +24,7 @@ app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/folders", folderRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/notes", noteRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Server is running...");
