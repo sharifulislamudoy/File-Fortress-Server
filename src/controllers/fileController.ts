@@ -82,6 +82,14 @@ export const uploadFile = async (req: Request, res: Response) => {
     if (fileType === "image") resourceType = "image";
     else if (fileType === "video") resourceType = "video";
 
+    // Enforce a maximum of 40 images per folder (uploads are one-at-a-time)
+    if (fileType === "image") {
+      const existingImages = await File.countDocuments({ folderId, userId, fileType: "image" });
+      if (existingImages >= 40) {
+        return res.status(400).json({ message: "Image limit reached: a folder can contain up to 40 images" });
+      }
+    }
+
     const uploadResult = await new Promise<any>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
